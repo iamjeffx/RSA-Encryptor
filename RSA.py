@@ -1,4 +1,30 @@
-from random import randrange
+from random import randrange, getrandbits
+
+
+def generate_prime_candidate(length):
+    """ Generate an odd integer randomly
+        Args:
+            length -- int -- the length of the number to generate, in bits
+        return a integer
+    """
+    # generate random bits
+    p = getrandbits(length)
+    # apply a mask to set MSB and LSB to 1
+    p |= (1 << length - 1) | 1
+    return p
+
+
+def generate_prime_number(length=1024):
+    """ Generate a prime
+        Args:
+            length -- int -- length of the prime to generate, in          bits
+        return a prime
+    """
+    p = 4
+    # keep generating while the primality test fail
+    while not is_prime(p, 128):
+        p = generate_prime_candidate(length)
+    return p
 
 
 def is_prime(n, k=128):
@@ -36,7 +62,41 @@ def is_prime(n, k=128):
     return True
 
 
-if __name__ == '__main__':
+def mod_inverse(a, m):
+    m0 = m
+    y = 0
+    x = 1
+    if m == 1:
+        return 0
+
+    while a > 1:
+        # q is quotient
+        q = a // m
+        t = m
+        # m is remainder now, process
+        # same as Euclid's algo
+        m = a % m
+        a = t
+        t = y
+        # Update x and y
+        y = x - q * y
+        x = t
+    # Make x positive
+    if x < 0:
+        x = x + m0
+
+    return x
+
+
+def generate_public_key():
+    return generate_prime_number(length=800), generate_prime_number(length=800), 65537
+
+
+def generate_private_key(p, q, e):
+    return mod_inverse(e, (p - 1) * (q - 1))
+
+
+def get_encoded_message():
     message = input("Enter message: ")
     encoded_message = ""
 
@@ -46,6 +106,35 @@ if __name__ == '__main__':
             current_char = '0' * (3 - len(current_char)) + current_char
         encoded_message += current_char
 
-    print(encoded_message)
-    print(is_prime(int(encoded_message)))
+    return encoded_message, message
+
+
+def convert_encoded_to_normal(encoded):
+    normal_message = ""
+    while encoded > 0:
+        char_encoding = encoded % 1000
+        normal_message = chr(char_encoding) + normal_message
+        encoded //= 1000
+    return normal_message
+
+
+def encrypt(m, p, q, e):
+    return pow(m, e, p * q)
+
+
+def decrypt(encoded, private, n):
+    return pow(encoded, private, n)
+
+
+if __name__ == '__main__':
+    encoded_message, message = get_encoded_message()
+    p, q, e = generate_public_key()
+    print("N=" + str(p * q))
+    private_key = generate_private_key(p, q, e)
+    encrypted = encrypt(int(encoded_message), p, q, e)
+    decrypted = decrypt(encrypted, private_key, p * q)
+    print("Original Message: " + str(encoded_message))
+    print("Encrypted Message: " + str(encrypted))
+    print("Decrypted Message: " + convert_encoded_to_normal(decrypted))
+
 
